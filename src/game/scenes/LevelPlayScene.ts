@@ -14,6 +14,8 @@ import type { SceneRunConfig } from './BootScene';
 const TILE = 32;
 const DEFAULT_WORLD_WIDTH = 1536;
 const WORLD_HEIGHT = 512;
+const FALL_RESET_Y = WORLD_HEIGHT + 60;
+const PHYSICS_WORLD_HEIGHT = FALL_RESET_Y + 180;
 const DISAPPEARING_BLOCK_VISIBLE_MS = 2600;
 const DISAPPEARING_BLOCK_HIDDEN_MS = 900;
 
@@ -70,7 +72,7 @@ export default class LevelPlayScene extends Phaser.Scene {
     }
 
     const worldWidth = this.getWorldWidth();
-    this.physics.world.setBounds(0, 0, worldWidth, WORLD_HEIGHT);
+    this.physics.world.setBounds(0, 0, worldWidth, PHYSICS_WORLD_HEIGHT);
     this.cameras.main.setBounds(0, 0, worldWidth, WORLD_HEIGHT);
     this.cameras.main.setBackgroundColor(this.level.background);
     this.game.canvas.setAttribute('tabindex', '0');
@@ -199,7 +201,7 @@ export default class LevelPlayScene extends Phaser.Scene {
 
     this.updateBombPrompt();
 
-    if (this.player.y > WORLD_HEIGHT + 60) {
+    if (this.player.y > FALL_RESET_Y) {
       this.softReset('Down the gap. Back to the last safe block.');
     }
   }
@@ -622,6 +624,14 @@ export default class LevelPlayScene extends Phaser.Scene {
     }
 
     this.showToast(message);
+    this.game.canvas.dispatchEvent(
+      new CustomEvent('fbomb:soft-reset', {
+        detail: {
+          levelId: this.level.id,
+          message,
+        },
+      }),
+    );
     this.clearVirtualControls();
     this.player.setVelocity(0, 0);
     this.player.setPosition(this.level.spawn.x, this.level.spawn.y);

@@ -370,6 +370,67 @@ test('renders the generated expert level range', async ({ page }) => {
   expect(consoleErrors).toEqual([]);
 });
 
+test('resets generated late levels after falling into a gap', async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      consoleErrors.push(message.text());
+    }
+  });
+
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      'fbomb.progress.v1',
+      JSON.stringify({
+        completedLevels: Array.from(
+          { length: 89 },
+          (_, index) => `level-${index + 1}`,
+        ),
+        rewards: [],
+      }),
+    );
+  });
+
+  await page.goto('/');
+  await page.getByRole('button', { exact: true, name: 'Map' }).click();
+
+  const lateLevel = page.locator('.level-card').filter({ hasText: 'Granite Run 90' });
+  await lateLevel.getByRole('button', { name: /play/i }).click();
+
+  await expect(page.getByRole('heading', { name: 'Granite Run 90' })).toBeVisible();
+  await expect(page.locator('canvas')).toBeVisible();
+
+  await page.evaluate(() => {
+    const target = window as Window & { __fbombResetMessages?: string[] };
+    const canvas = document.querySelector('canvas');
+
+    if (!canvas) {
+      throw new Error('Game canvas was not found.');
+    }
+
+    target.__fbombResetMessages = [];
+    canvas.addEventListener('fbomb:soft-reset', (event) => {
+      const detail = (event as CustomEvent<{ message?: string }>).detail;
+      target.__fbombResetMessages?.push(detail.message ?? 'reset');
+    });
+  });
+
+  await page.keyboard.down('ArrowRight');
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const target = window as Window & { __fbombResetMessages?: string[] };
+          return target.__fbombResetMessages?.[0] ?? null;
+        }),
+      { timeout: 6_000 },
+    )
+    .toBe('Down the gap. Back to the last safe block.');
+  await page.keyboard.up('ArrowRight');
+
+  expect(consoleErrors).toEqual([]);
+});
+
 test('can recreate game scenes without stale listener console errors', async ({
   page,
 }) => {
