@@ -547,6 +547,7 @@ function createGeneratedLevel(levelNumber: number): LevelDefinition {
       width: 12 + Math.min(4, Math.floor(stage / 2)),
       texture: platformTexture,
     },
+    { x: bombX - 172, y: 384, width: 4, texture: platformTexture },
     { x: bombX - 84, y: 320, width: 6, texture: platformTexture },
   ];
   const hazards: Hazard[] = [];

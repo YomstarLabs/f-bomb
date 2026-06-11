@@ -1,4 +1,52 @@
 import { expect, test } from '@playwright/test';
+import { getLevel, type BlockRun } from '../src/game/systems/levelRegistry';
+
+const TILE = 32;
+
+function runEnd(run: BlockRun): number {
+  return run.x + run.width * TILE;
+}
+
+function jumpGap(from: BlockRun, to: BlockRun): number {
+  return Math.max(to.x - runEnd(from), from.x - runEnd(to), 0);
+}
+
+test('level 22 has a reachable final bomb approach', () => {
+  const level = getLevel('level-22');
+  const bombPlatform = level.platforms.find(
+    (run) =>
+      level.bomb.x >= run.x &&
+      level.bomb.x <= runEnd(run) &&
+      run.y > level.bomb.y,
+  );
+
+  if (!bombPlatform) {
+    throw new Error('Level 22 has no platform under the bomb.');
+  }
+
+  const approach = level.platforms.find(
+    (run) =>
+      run !== bombPlatform &&
+      run.y > bombPlatform.y &&
+      run.y - bombPlatform.y <= 96 &&
+      jumpGap(run, bombPlatform) <= 96,
+  );
+
+  if (!approach) {
+    throw new Error('Level 22 has no reachable step onto the bomb platform.');
+  }
+
+  const feeder = level.platforms.find(
+    (run) =>
+      run !== approach &&
+      run !== bombPlatform &&
+      run.y >= approach.y &&
+      run.y - approach.y <= 96 &&
+      jumpGap(run, approach) <= 96,
+  );
+
+  expect(feeder).toBeTruthy();
+});
 
 test('boots the menu and renders an interactive Phaser canvas', async ({ page }) => {
   const consoleErrors: string[] = [];
