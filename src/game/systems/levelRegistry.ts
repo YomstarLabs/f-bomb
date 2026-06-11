@@ -134,8 +134,8 @@ const baseLevels: LevelDefinition[] = [
     platforms: [
       { x: 0, y: 448, width: 12, texture: 'crystal-block' },
       { x: 800, y: 448, width: 24, texture: 'crystal-block' },
-      { x: 330, y: 336, width: 4, texture: 'crystal-block' },
-      { x: 920, y: 272, width: 5, texture: 'crystal-block' },
+      { x: 330, y: 360, width: 4, texture: 'crystal-block' },
+      { x: 920, y: 304, width: 5, texture: 'crystal-block' },
     ],
     movingPlatforms: [{ x: 560, y: 356, distance: 170 }],
     hazards: [{ x: 420, y: 432, width: 320 }],

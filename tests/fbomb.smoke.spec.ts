@@ -1,51 +1,312 @@
 import { expect, test } from '@playwright/test';
-import { getLevel, type BlockRun } from '../src/game/systems/levelRegistry';
+import {
+  levels,
+  type BlockRun,
+  type LevelDefinition,
+  type MovingPlatform,
+  type Point,
+} from '../src/game/systems/levelRegistry';
 
 const TILE = 32;
+const PLAYER_SPEED = 220;
+const JUMP_VELOCITY = 455;
+const GRAVITY = 920;
+const PLAYER_BODY_WIDTH = 20;
+const PLAYER_BODY_HEIGHT = 30;
+const PLATFORM_EDGE_MARGIN = 6;
+const JUMP_SAFETY_MARGIN = 12;
+const MAX_JUMP_HEIGHT = (JUMP_VELOCITY * JUMP_VELOCITY) / (2 * GRAVITY);
+const MAX_TARGET_STEP_UP = MAX_JUMP_HEIGHT - 8;
+const SWITCH_POSITION: Point = { x: 390, y: 320 };
+
+type Surface = {
+  id: string;
+  x: number;
+  endX: number;
+  y: number;
+};
 
 function runEnd(run: BlockRun): number {
   return run.x + run.width * TILE;
 }
 
-function jumpGap(from: BlockRun, to: BlockRun): number {
-  return Math.max(to.x - runEnd(from), from.x - runEnd(to), 0);
+function surfaceFromRun(run: BlockRun, id: string): Surface {
+  return {
+    id,
+    x: run.x,
+    endX: runEnd(run),
+    y: run.y,
+  };
 }
 
-test('level 22 has a reachable final bomb approach', () => {
-  const level = getLevel('level-22');
-  const bombPlatform = level.platforms.find(
-    (run) =>
-      level.bomb.x >= run.x &&
-      level.bomb.x <= runEnd(run) &&
-      run.y > level.bomb.y,
-  );
+function surfaceFromMovingPlatform(
+  platform: MovingPlatform,
+  id: string,
+): Surface {
+  return {
+    id,
+    x: platform.x - 48,
+    endX: platform.x + platform.distance + 48,
+    y: platform.y - 9,
+  };
+}
 
-  if (!bombPlatform) {
-    throw new Error('Level 22 has no platform under the bomb.');
+function getStandableRange(surface: Surface): { x: number; endX: number } {
+  return {
+    x: Math.min(
+      surface.x + PLATFORM_EDGE_MARGIN,
+      (surface.x + surface.endX) / 2,
+    ),
+    endX: Math.max(
+      surface.endX - PLATFORM_EDGE_MARGIN,
+      (surface.x + surface.endX) / 2,
+    ),
+  };
+}
+
+function horizontalGap(from: Surface, to: Surface): number {
+  const fromRange = getStandableRange(from);
+  const toRange = getStandableRange(to);
+
+  return Math.max(toRange.x - fromRange.endX, fromRange.x - toRange.endX, 0);
+}
+
+function splitSurfaceAroundHazards(
+  surface: Surface,
+  level: LevelDefinition,
+): Surface[] {
+  const blockingHazards = (level.hazards ?? [])
+    .filter(
+      (hazard) =>
+        hazard.y <= surface.y &&
+        hazard.y + 24 >= surface.y - 4 &&
+        hazard.x < surface.endX &&
+        hazard.x + hazard.width > surface.x,
+    )
+    .map((hazard) => ({
+      x: Math.max(surface.x, hazard.x),
+      endX: Math.min(surface.endX, hazard.x + hazard.width),
+    }))
+    .sort((a, b) => a.x - b.x);
+
+  if (blockingHazards.length === 0) {
+    return [surface];
   }
 
-  const approach = level.platforms.find(
-    (run) =>
-      run !== bombPlatform &&
-      run.y > bombPlatform.y &&
-      run.y - bombPlatform.y <= 96 &&
-      jumpGap(run, bombPlatform) <= 96,
-  );
+  const pieces: Surface[] = [];
+  let cursor = surface.x;
 
-  if (!approach) {
-    throw new Error('Level 22 has no reachable step onto the bomb platform.');
+  for (const hazard of blockingHazards) {
+    if (hazard.x - cursor >= PLAYER_BODY_WIDTH) {
+      pieces.push({
+        ...surface,
+        id: `${surface.id}:safe-${pieces.length}`,
+        x: cursor,
+        endX: hazard.x,
+      });
+    }
+
+    cursor = Math.max(cursor, hazard.endX);
   }
 
-  const feeder = level.platforms.find(
-    (run) =>
-      run !== approach &&
-      run !== bombPlatform &&
-      run.y >= approach.y &&
-      run.y - approach.y <= 96 &&
-      jumpGap(run, approach) <= 96,
+  if (surface.endX - cursor >= PLAYER_BODY_WIDTH) {
+    pieces.push({
+      ...surface,
+      id: `${surface.id}:safe-${pieces.length}`,
+      x: cursor,
+      endX: surface.endX,
+    });
+  }
+
+  return pieces;
+}
+
+function createSurfaces(
+  level: LevelDefinition,
+  includeSwitchBridge: boolean,
+): Surface[] {
+  const runs = [
+    ...level.platforms,
+    ...(level.crumbleBlocks ?? []),
+    ...(level.disappearingBlocks ?? []),
+    ...(includeSwitchBridge && level.switchBridge ? [level.switchBridge] : []),
+  ];
+  const fixedSurfaces = runs.flatMap((run, index) =>
+    splitSurfaceAroundHazards(surfaceFromRun(run, `run-${index}`), level),
+  );
+  const movingSurfaces = (level.movingPlatforms ?? []).map((platform, index) =>
+    surfaceFromMovingPlatform(platform, `moving-${index}`),
   );
 
-  expect(feeder).toBeTruthy();
+  return [...fixedSurfaces, ...movingSurfaces];
+}
+
+function jumpFlightTime(verticalDelta: number): number | null {
+  if (verticalDelta < -MAX_TARGET_STEP_UP) {
+    return null;
+  }
+
+  const discriminant =
+    JUMP_VELOCITY * JUMP_VELOCITY + 2 * GRAVITY * verticalDelta;
+
+  if (discriminant < 0) {
+    return null;
+  }
+
+  return (JUMP_VELOCITY + Math.sqrt(discriminant)) / GRAVITY;
+}
+
+function canReachSurface(from: Surface, to: Surface): boolean {
+  if (from.id === to.id) {
+    return false;
+  }
+
+  const flightTime = jumpFlightTime(to.y - from.y);
+
+  if (flightTime === null) {
+    return false;
+  }
+
+  const reachableDistance = PLAYER_SPEED * flightTime - JUMP_SAFETY_MARGIN;
+
+  return horizontalGap(from, to) <= reachableDistance;
+}
+
+function findSpawnSurface(
+  level: LevelDefinition,
+  surfaces: Surface[],
+): Surface | null {
+  const candidates = surfaces
+    .filter((surface) => {
+      const range = getStandableRange(surface);
+
+      return (
+        level.spawn.x >= range.x &&
+        level.spawn.x <= range.endX &&
+        surface.y >= level.spawn.y
+      );
+    })
+    .sort((a, b) => a.y - b.y);
+
+  return candidates[0] ?? null;
+}
+
+function findReachableSurfaces(
+  start: Surface,
+  surfaces: Surface[],
+): Set<Surface> {
+  const reachable = new Set<Surface>([start]);
+  const queue = [start];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+
+    if (!current) {
+      continue;
+    }
+
+    for (const candidate of surfaces) {
+      if (reachable.has(candidate) || !canReachSurface(current, candidate)) {
+        continue;
+      }
+
+      reachable.add(candidate);
+      queue.push(candidate);
+    }
+  }
+
+  return reachable;
+}
+
+function hasReachableSwitch(reachable: Set<Surface>): boolean {
+  return [...reachable].some((surface) => {
+    const range = getStandableRange(surface);
+    const horizontalOverlap =
+      range.x <= SWITCH_POSITION.x + 16 && range.endX >= SWITCH_POSITION.x - 16;
+    const playerTop = surface.y - PLAYER_BODY_HEIGHT;
+    const playerBottom = surface.y;
+    const switchTop = SWITCH_POSITION.y - 16;
+    const switchBottom = SWITCH_POSITION.y + 16;
+
+    return (
+      horizontalOverlap &&
+      playerTop < switchBottom &&
+      playerBottom > switchTop
+    );
+  });
+}
+
+function canDefuseBomb(surface: Surface, bomb: Point): boolean {
+  const range = getStandableRange(surface);
+  const playerY = surface.y - 16;
+
+  return (
+    range.x <= bomb.x + 58 &&
+    range.endX >= bomb.x - 58 &&
+    Math.abs(playerY - bomb.y) < 70
+  );
+}
+
+function canEnterExit(surface: Surface, exit: Point): boolean {
+  const range = getStandableRange(surface);
+  const horizontalOverlap = range.x <= exit.x + 48 && range.endX >= exit.x - 48;
+  const jumpTop = surface.y - MAX_JUMP_HEIGHT;
+  const exitTop = exit.y - 24;
+  const exitBottom = exit.y + 24;
+
+  return horizontalOverlap && jumpTop <= exitBottom && surface.y >= exitTop;
+}
+
+function validateLevelRoute(level: LevelDefinition): string[] {
+  let surfaces = createSurfaces(level, false);
+  let spawnSurface = findSpawnSurface(level, surfaces);
+
+  if (!spawnSurface) {
+    return [`${level.id} has no safe platform below spawn.`];
+  }
+
+  let reachable = findReachableSurfaces(spawnSurface, surfaces);
+
+  if (level.switchBridge) {
+    if (!hasReachableSwitch(reachable)) {
+      return [`${level.id} has a switch bridge but the switch is unreachable.`];
+    }
+
+    surfaces = createSurfaces(level, true);
+    spawnSurface = findSpawnSurface(level, surfaces);
+
+    if (!spawnSurface) {
+      return [`${level.id} has no safe platform below spawn after bridge reveal.`];
+    }
+
+    reachable = findReachableSurfaces(spawnSurface, surfaces);
+  }
+
+  const bombSurfaces = [...reachable].filter((surface) =>
+    canDefuseBomb(surface, level.bomb),
+  );
+
+  if (bombSurfaces.length === 0) {
+    return [`${level.id} cannot reach the Formula Bomb.`];
+  }
+
+  const exitReachableAfterDefuse = bombSurfaces.some((surface) =>
+    [...findReachableSurfaces(surface, surfaces)].some((candidate) =>
+      canEnterExit(candidate, level.exit),
+    ),
+  );
+
+  if (!exitReachableAfterDefuse) {
+    return [`${level.id} cannot reach the exit after defusing the bomb.`];
+  }
+
+  return [];
+}
+
+test('all levels have reachable bomb and exit routes', () => {
+  const errors = levels.flatMap((level) => validateLevelRoute(level));
+
+  expect(errors).toEqual([]);
 });
 
 test('boots the menu and renders an interactive Phaser canvas', async ({ page }) => {
