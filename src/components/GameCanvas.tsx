@@ -46,6 +46,18 @@ export default function GameCanvas({
 
   return (
     <div className="game-canvas" ref={hostRef}>
+      <div className="orientation-prompt" role="status">
+        <span className="brand-mark" aria-hidden="true">
+          F
+        </span>
+        <div>
+          <h2>Turn your phone sideways</h2>
+          <p>
+            Formula Bomb plays in landscape on phones so the full game area and
+            controls fit.
+          </p>
+        </div>
+      </div>
       <TouchControls />
     </div>
   );

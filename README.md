@@ -5,7 +5,8 @@ A browser-based maths platform game built with Vite, React, TypeScript and Phase
 ## What is included
 
 - Main menu, level map, parent settings and reward screen
-- Ten short block-themed platform levels
+- A 100-level block-themed platform progression with longer generated routes
+- Dropping bombs, snake patrols, moving platforms, switches and timed blocks
 - Keyboard movement with Phaser Arcade Physics
 - Formula Bomb maths gates driven by React modals
 - Supportive hints for wrong answers

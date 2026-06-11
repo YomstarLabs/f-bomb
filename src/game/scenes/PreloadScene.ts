@@ -85,6 +85,9 @@ export default class PreloadScene extends Phaser.Scene {
 
   private createObjectTextures(): void {
     this.createBomb();
+    this.createDroppingBomb();
+    this.createBlast();
+    this.createSnake();
     this.createDoor('door-closed', 0x9a5b22, 0xfcd34d);
     this.createDoor('door-open', 0x4f9f38, 0xd9f99d);
     this.createSpike();
@@ -109,6 +112,65 @@ export default class PreloadScene extends Phaser.Scene {
     graphics.fillStyle(0xff7043, 1);
     graphics.fillCircle(29, 2, 3);
     graphics.generateTexture('formula-bomb', 32, 32);
+    graphics.destroy();
+  }
+
+  private createDroppingBomb(): void {
+    if (this.textures.exists('dropping-bomb')) {
+      return;
+    }
+
+    const graphics = this.add.graphics();
+    graphics.fillStyle(0x111827, 1);
+    graphics.fillCircle(16, 18, 11);
+    graphics.fillStyle(0x374151, 1);
+    graphics.fillCircle(12, 14, 4);
+    graphics.lineStyle(3, 0xfacc15, 1);
+    graphics.lineBetween(21, 10, 28, 3);
+    graphics.fillStyle(0xff7043, 1);
+    graphics.fillCircle(28, 3, 3);
+    graphics.generateTexture('dropping-bomb', 32, 32);
+    graphics.destroy();
+  }
+
+  private createBlast(): void {
+    if (this.textures.exists('blast')) {
+      return;
+    }
+
+    const graphics = this.add.graphics();
+    graphics.fillStyle(0xfff7ad, 1);
+    graphics.fillCircle(24, 24, 20);
+    graphics.fillStyle(0xff9f1c, 0.9);
+    graphics.fillCircle(24, 24, 14);
+    graphics.fillStyle(0xef4444, 0.9);
+    graphics.fillTriangle(24, 0, 31, 17, 17, 17);
+    graphics.fillTriangle(48, 24, 31, 31, 31, 17);
+    graphics.fillTriangle(24, 48, 17, 31, 31, 31);
+    graphics.fillTriangle(0, 24, 17, 17, 17, 31);
+    graphics.generateTexture('blast', 48, 48);
+    graphics.destroy();
+  }
+
+  private createSnake(): void {
+    if (this.textures.exists('snake')) {
+      return;
+    }
+
+    const graphics = this.add.graphics();
+    graphics.fillStyle(0x16a34a, 1);
+    graphics.fillRoundedRect(2, 10, 24, 12, 6);
+    graphics.fillCircle(25, 15, 7);
+    graphics.fillStyle(0xfef3c7, 1);
+    graphics.fillRect(26, 12, 2, 2);
+    graphics.fillStyle(0x052e16, 1);
+    graphics.fillRect(24, 13, 2, 2);
+    graphics.fillStyle(0xdc2626, 1);
+    graphics.fillRect(30, 16, 2, 1);
+    graphics.lineStyle(2, 0x86efac, 1);
+    graphics.lineBetween(6, 12, 12, 20);
+    graphics.lineBetween(13, 12, 19, 20);
+    graphics.generateTexture('snake', 32, 24);
     graphics.destroy();
   }
 

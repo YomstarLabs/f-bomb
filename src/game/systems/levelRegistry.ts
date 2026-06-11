@@ -25,10 +25,24 @@ export type FallingBlock = {
   triggerX: number;
 };
 
+export type DroppingBomb = {
+  x: number;
+  y: number;
+  triggerX: number;
+  fallSpeed?: number;
+};
+
 export type MovingPlatform = {
   x: number;
   y: number;
   distance: number;
+};
+
+export type SnakePatrol = {
+  x: number;
+  y: number;
+  distance: number;
+  speed?: number;
 };
 
 export type LevelDefinition = {
@@ -48,6 +62,8 @@ export type LevelDefinition = {
   platforms: BlockRun[];
   hazards?: Hazard[];
   fallingBlocks?: FallingBlock[];
+  droppingBombs?: DroppingBomb[];
+  snakePatrols?: SnakePatrol[];
   movingPlatforms?: MovingPlatform[];
   crumbleBlocks?: BlockRun[];
   disappearingBlocks?: BlockRun[];
@@ -60,7 +76,7 @@ const baseLevels: LevelDefinition[] = [
     id: 'level-1',
     title: 'Grass Blocks',
     theme: 'Sunny block meadow',
-    mechanic: 'Basic movement and one falling block',
+    mechanic: 'Basic movement and one dropping bomb',
     mathFocus: 'Addition under 20',
     mathTier: 1,
     questionModes: ['addition'],
@@ -82,13 +98,13 @@ const baseLevels: LevelDefinition[] = [
       { x: 1130, y: 352, width: 3, texture: 'grass-block' },
     ],
     hazards: [{ x: 610, y: 432, width: 96 }],
-    fallingBlocks: [{ x: 384, y: 160, triggerX: 330 }],
+    droppingBombs: [{ x: 384, y: 160, triggerX: 330, fallSpeed: 48 }],
   },
   {
     id: 'level-2',
     title: 'Cave Run',
     theme: 'Lantern cave',
-    mechanic: 'Low ledge before cracked floor',
+    mechanic: 'Low ledge before the first snake',
     mathFocus: 'Subtraction under 20',
     mathTier: 2,
     questionModes: ['subtraction'],
@@ -112,6 +128,7 @@ const baseLevels: LevelDefinition[] = [
     ],
     crumbleBlocks: [{ x: 384, y: 448, width: 2, texture: 'crack-block' }],
     hazards: [{ x: 480, y: 432, width: 128 }],
+    snakePatrols: [{ x: 760, y: 432, distance: 120, speed: 34 }],
   },
   {
     id: 'level-3',
@@ -139,6 +156,7 @@ const baseLevels: LevelDefinition[] = [
     ],
     movingPlatforms: [{ x: 560, y: 356, distance: 170 }],
     hazards: [{ x: 420, y: 432, width: 320 }],
+    snakePatrols: [{ x: 930, y: 432, distance: 150, speed: 36 }],
   },
   {
     id: 'level-4',
@@ -167,6 +185,7 @@ const baseLevels: LevelDefinition[] = [
     ],
     switchBridge: { x: 520, y: 352, width: 6, texture: 'spark-block' },
     hazards: [{ x: 520, y: 432, width: 220 }],
+    droppingBombs: [{ x: 720, y: 132, triggerX: 650, fallSpeed: 54 }],
   },
   {
     id: 'level-5',
@@ -198,6 +217,7 @@ const baseLevels: LevelDefinition[] = [
       { x: 600, y: 320, width: 3, texture: 'hot-block' },
     ],
     hazards: [{ x: 360, y: 432, width: 360 }],
+    snakePatrols: [{ x: 900, y: 368, distance: 82, speed: 34 }],
   },
   {
     id: 'level-6',
@@ -229,6 +249,7 @@ const baseLevels: LevelDefinition[] = [
       { x: 1180, y: 316, distance: 120 },
     ],
     hazards: [{ x: 352, y: 432, width: 420 }],
+    snakePatrols: [{ x: 1040, y: 304, distance: 84, speed: 36 }],
   },
   {
     id: 'level-7',
@@ -258,12 +279,14 @@ const baseLevels: LevelDefinition[] = [
     switchBridge: { x: 520, y: 352, width: 6, texture: 'gear-bridge-block' },
     crumbleBlocks: [{ x: 690, y: 352, width: 2, texture: 'crack-block' }],
     hazards: [{ x: 520, y: 432, width: 220 }],
+    droppingBombs: [{ x: 835, y: 132, triggerX: 760, fallSpeed: 58 }],
+    snakePatrols: [{ x: 960, y: 304, distance: 92, speed: 38 }],
   },
   {
     id: 'level-8',
     title: 'Prism Steps',
     theme: 'Glass prism block arrays',
-    mechanic: 'Falling blocks around stepped arrays',
+    mechanic: 'Dropping bombs around stepped arrays',
     mathFocus: 'Arrays and block geometry',
     mathTier: 8,
     questionModes: ['geometry', 'multiplication'],
@@ -287,11 +310,12 @@ const baseLevels: LevelDefinition[] = [
       { x: 900, y: 344, width: 3, texture: 'prism-block' },
       { x: 930, y: 304, width: 5, texture: 'prism-block' },
     ],
-    fallingBlocks: [
-      { x: 374, y: 120, triggerX: 310 },
-      { x: 690, y: 128, triggerX: 635 },
+    droppingBombs: [
+      { x: 374, y: 120, triggerX: 310, fallSpeed: 58 },
+      { x: 690, y: 128, triggerX: 635, fallSpeed: 58 },
     ],
     hazards: [{ x: 500, y: 432, width: 220 }],
+    snakePatrols: [{ x: 820, y: 368, distance: 74, speed: 38 }],
   },
   {
     id: 'level-9',
@@ -324,6 +348,8 @@ const baseLevels: LevelDefinition[] = [
       { x: 710, y: 368, width: 2, texture: 'fraction-block' },
     ],
     hazards: [{ x: 360, y: 432, width: 380 }],
+    droppingBombs: [{ x: 900, y: 120, triggerX: 820, fallSpeed: 62 }],
+    snakePatrols: [{ x: 1000, y: 304, distance: 92, speed: 40 }],
   },
   {
     id: 'level-10',
@@ -353,13 +379,17 @@ const baseLevels: LevelDefinition[] = [
     ],
     movingPlatforms: [{ x: 600, y: 356, distance: 170 }],
     disappearingBlocks: [{ x: 720, y: 336, width: 3, texture: 'spark-block' }],
-    fallingBlocks: [
-      { x: 370, y: 120, triggerX: 300 },
-      { x: 1210, y: 128, triggerX: 1120 },
+    droppingBombs: [
+      { x: 370, y: 120, triggerX: 300, fallSpeed: 64 },
+      { x: 1210, y: 128, triggerX: 1120, fallSpeed: 64 },
     ],
     hazards: [
       { x: 330, y: 432, width: 180 },
       { x: 680, y: 432, width: 100 },
+    ],
+    snakePatrols: [
+      { x: 920, y: 336, distance: 70, speed: 40 },
+      { x: 1080, y: 272, distance: 86, speed: 42 },
     ],
   },
 ];
@@ -513,14 +543,14 @@ function getMathProfile(levelNumber: number): MathProfile {
 
 function getMechanicSummary(stage: number): string {
   const summaries = [
-    'Longer jumps over spike gaps',
-    'Spike gaps with falling blocks',
+    'Longer jumps with a gentle snake patrol',
+    'Spike gaps with dropping bombs',
     'Moving lifts across split ground',
-    'Crumbling steps and falling blocks',
+    'Crumbling steps with snake patrols',
     'Disappearing blocks over hazards',
     'Switch bridge with moving lifts',
-    'Layered lifts and crumble routes',
-    'Fast disappearing blocks and falling traps',
+    'Layered lifts, snakes and crumble routes',
+    'Fast blocks and dropping bomb timing',
     'Long expert route with every trap type',
   ];
 
@@ -535,7 +565,7 @@ function createGeneratedLevel(levelNumber: number): LevelDefinition {
     generatedThemes[(levelNumber + stage) % generatedThemes.length] ??
     generatedThemes[0];
   const mathProfile = getMathProfile(levelNumber);
-  const worldWidth = 1536 + stage * 176 + Math.floor((localIndex - 1) / 3) * 96;
+  const worldWidth = 1536 + stage * 220 + Math.floor((localIndex - 1) / 2) * 64;
   const platformTexture = theme.texture;
   const bombX = worldWidth - 440;
   const exitX = worldWidth - 150;
@@ -551,10 +581,13 @@ function createGeneratedLevel(levelNumber: number): LevelDefinition {
     { x: bombX - 84, y: 320, width: 6, texture: platformTexture },
   ];
   const hazards: Hazard[] = [];
-  const fallingBlocks: FallingBlock[] = [];
+  const droppingBombs: DroppingBomb[] = [];
+  const snakePatrols: SnakePatrol[] = [];
   const movingPlatforms: MovingPlatform[] = [];
   const crumbleBlocks: BlockRun[] = [];
   const disappearingBlocks: BlockRun[] = [];
+  const maxDroppingBombs = Math.min(4, 1 + Math.floor((stage + localIndex) / 4));
+  const maxSnakePatrols = Math.min(5, 1 + Math.floor((stage + localIndex) / 3));
   let cursor = 384;
   let segmentIndex = 0;
 
@@ -600,11 +633,29 @@ function createGeneratedLevel(levelNumber: number): LevelDefinition {
       });
     }
 
-    if (stage >= 1 && segmentIndex % 4 === 0 && fallingBlocks.length < 4) {
-      fallingBlocks.push({
+    if (
+      (stage >= 1 || localIndex >= 5) &&
+      segmentIndex % 4 === 0 &&
+      droppingBombs.length < maxDroppingBombs
+    ) {
+      droppingBombs.push({
         x: segmentX + 80,
         y: 120 + (segmentIndex % 2) * 24,
         triggerX: segmentX - 20,
+        fallSpeed: 54 + Math.min(26, stage * 4),
+      });
+    }
+
+    if (
+      (localIndex >= 3 || stage >= 1) &&
+      segmentIndex % 4 === 1 &&
+      snakePatrols.length < maxSnakePatrols
+    ) {
+      snakePatrols.push({
+        x: segmentX + 48,
+        y: platformY - 16,
+        distance: Math.max(56, Math.min(150, segmentWidth * 32 - 84)),
+        speed: 32 + Math.min(18, stage * 2),
       });
     }
 
@@ -673,7 +724,8 @@ function createGeneratedLevel(levelNumber: number): LevelDefinition {
     exit: { x: exitX, y: 352 },
     platforms,
     hazards,
-    fallingBlocks,
+    droppingBombs,
+    snakePatrols,
     movingPlatforms,
     crumbleBlocks,
     disappearingBlocks,

@@ -98,6 +98,8 @@ export default class LevelPlayScene extends Phaser.Scene {
     this.addMovingPlatforms(this.level);
     this.addDisappearingBlocks(this.level);
     this.addFallingBlocks(this.level);
+    this.addDroppingBombs(this.level);
+    this.addSnakePatrols(this.level);
     this.addChaosMode(this.level);
 
     if (this.hazards) {
@@ -302,6 +304,110 @@ export default class LevelPlayScene extends Phaser.Scene {
             block.setVelocityY(45);
           }
         },
+      });
+    }
+  }
+
+  private addDroppingBombs(level: LevelDefinition): void {
+    if (!this.player || !this.platforms) {
+      return;
+    }
+
+    for (const dropping of level.droppingBombs ?? []) {
+      const bomb = this.physics.add
+        .image(dropping.x, dropping.y, 'dropping-bomb')
+        .setDepth(9);
+      bomb.setImmovable(false);
+      bomb.setData('dropped', false);
+      bomb.setData('detonated', false);
+
+      const body = bomb.body as Phaser.Physics.Arcade.Body;
+      body.allowGravity = false;
+      body.setSize(24, 24).setOffset(4, 4);
+
+      this.physics.add.collider(bomb, this.platforms);
+      this.physics.add.overlap(this.player, bomb, () =>
+        this.detonateDroppingBomb(bomb),
+      );
+
+      this.time.addEvent({
+        loop: true,
+        delay: 120,
+        callback: () => {
+          if (
+            !this.player ||
+            !bomb.active ||
+            bomb.getData('dropped') ||
+            bomb.getData('detonated')
+          ) {
+            return;
+          }
+
+          if (Math.abs(this.player.x - dropping.triggerX) < 78) {
+            bomb.setData('dropped', true);
+            body.allowGravity = true;
+            bomb.setVelocityY(dropping.fallSpeed ?? 58);
+            bomb.setAngularVelocity(90);
+          }
+        },
+      });
+    }
+  }
+
+  private detonateDroppingBomb(bomb: Phaser.Physics.Arcade.Image): void {
+    if (bomb.getData('detonated')) {
+      return;
+    }
+
+    bomb.setData('detonated', true);
+    this.showBlast(bomb.x, bomb.y);
+    bomb.disableBody(true, true);
+    this.softReset('Boom. Watch for dropping bombs.');
+  }
+
+  private showBlast(x: number, y: number): void {
+    const blast = this.add.image(x, y, 'blast').setDepth(18).setScale(0.45);
+
+    this.tweens.add({
+      targets: blast,
+      alpha: 0,
+      scale: 1.35,
+      duration: 280,
+      ease: 'Quad.out',
+      onComplete: () => blast.destroy(),
+    });
+  }
+
+  private addSnakePatrols(level: LevelDefinition): void {
+    if (!this.player) {
+      return;
+    }
+
+    for (const patrol of level.snakePatrols ?? []) {
+      const snake = this.physics.add
+        .sprite(patrol.x, patrol.y, 'snake')
+        .setDepth(8);
+      snake.setImmovable(true);
+
+      const body = snake.body as Phaser.Physics.Arcade.Body;
+      body.allowGravity = false;
+      body.setSize(28, 14).setOffset(2, 8);
+
+      this.physics.add.overlap(this.player, snake, () =>
+        this.softReset('Snake patrol. Try the timing again.'),
+      );
+
+      const distance = Math.max(48, patrol.distance);
+      const speed = Math.max(24, patrol.speed ?? 38);
+      this.tweens.add({
+        targets: snake,
+        x: patrol.x + distance,
+        duration: (distance / speed) * 1000,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.inOut',
+        onYoyo: () => snake.setFlipX(true),
+        onRepeat: () => snake.setFlipX(false),
       });
     }
   }

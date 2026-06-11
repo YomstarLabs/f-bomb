@@ -1,5 +1,6 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
+  getLevel,
   levels,
   type BlockRun,
   type LevelDefinition,
@@ -303,10 +304,104 @@ function validateLevelRoute(level: LevelDefinition): string[] {
   return [];
 }
 
+async function startFirstLevel(page: Page): Promise<void> {
+  await page.goto('/');
+  await page.getByRole('button', { name: /continue/i }).click();
+  await expect(page.locator('.game-canvas')).toBeAttached();
+}
+
+async function expectCanvasReady(canvas: Locator): Promise<void> {
+  await expect(canvas).toBeVisible();
+  await expect
+    .poll(() =>
+      canvas.evaluate((element) => {
+        const node = element as HTMLCanvasElement;
+        return node.width > 0 && node.height > 0;
+      }),
+    )
+    .toBe(true);
+}
+
+async function openMathsModal(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const { GameEvents } = await import('/src/game/events.ts');
+
+    GameEvents.emit('maths:request', {
+      gateId: 'modal-layout-test',
+      levelId: 'level-1',
+      question: {
+        id: 'modal-layout-test-question',
+        prompt: 'You mined 4 crystals and found 6 more. How many crystals now?',
+        answer: 10,
+        options: [7, 11, 15, 10],
+        hint: 'Add the two groups.',
+        explanation: '4 + 6 = 10',
+      },
+    });
+  });
+}
+
+async function dispatchTouchPointer(
+  locator: Locator,
+  type: 'pointerdown' | 'pointerup',
+  pointerId: number,
+): Promise<void> {
+  const element = await locator.elementHandle();
+
+  if (!element) {
+    throw new Error(`Unable to dispatch ${type}; element was not found.`);
+  }
+
+  await element.evaluate(
+    (node, eventInit) => {
+      node.dispatchEvent(
+        new PointerEvent(eventInit.type, {
+          bubbles: true,
+          cancelable: true,
+          buttons: eventInit.type === 'pointerup' ? 0 : 1,
+          isPrimary: eventInit.pointerId === 1,
+          pointerId: eventInit.pointerId,
+          pointerType: 'touch',
+        }),
+      );
+    },
+    { pointerId, type },
+  );
+}
+
 test('all levels have reachable bomb and exit routes', () => {
   const errors = levels.flatMap((level) => validateLevelRoute(level));
 
   expect(errors).toEqual([]);
+});
+
+test('generated levels get longer and add new hazards over time', () => {
+  const earlyGenerated = getLevel('level-11');
+  const midGenerated = getLevel('level-50');
+  const lateGenerated = getLevel('level-100');
+  const generatedLevels = levels.slice(10);
+
+  expect(midGenerated.worldWidth ?? 0).toBeGreaterThan(
+    earlyGenerated.worldWidth ?? 0,
+  );
+  expect(lateGenerated.worldWidth ?? 0).toBeGreaterThan(
+    midGenerated.worldWidth ?? 0,
+  );
+  expect(
+    generatedLevels.some((level) => (level.droppingBombs?.length ?? 0) > 0),
+  ).toBe(true);
+  expect(
+    generatedLevels.some((level) => (level.snakePatrols?.length ?? 0) > 0),
+  ).toBe(true);
+  expect(
+    generatedLevels
+      .slice(60)
+      .some(
+        (level) =>
+          (level.droppingBombs?.length ?? 0) > 0 &&
+          (level.snakePatrols?.length ?? 0) > 0,
+      ),
+  ).toBe(true);
 });
 
 test('boots the menu and renders an interactive Phaser canvas', async ({ page }) => {
@@ -318,6 +413,7 @@ test('boots the menu and renders an interactive Phaser canvas', async ({ page })
   });
 
   await page.goto('/');
+  expect(getLevel('level-1').droppingBombs?.length ?? 0).toBeGreaterThan(0);
   await expect(
     page.getByRole('heading', { name: 'F-Bomb: Formula Bomb' }),
   ).toBeVisible();
@@ -326,15 +422,7 @@ test('boots the menu and renders an interactive Phaser canvas', async ({ page })
   await expect(page.getByRole('heading', { name: 'Grass Blocks' })).toBeVisible();
 
   const canvas = page.locator('canvas');
-  await expect(canvas).toBeVisible();
-  await expect
-    .poll(() =>
-      canvas.evaluate((element) => {
-        const node = element as HTMLCanvasElement;
-        return node.width > 0 && node.height > 0;
-      }),
-    )
-    .toBe(true);
+  await expectCanvasReady(canvas);
 
   const before = await canvas.screenshot();
   await page.keyboard.down('ArrowRight');
@@ -347,7 +435,9 @@ test('boots the menu and renders an interactive Phaser canvas', async ({ page })
   expect(consoleErrors).toEqual([]);
 });
 
-test('moves with visible virtual controls on small screens', async ({ page }) => {
+test('prompts phone portrait players to rotate before showing the game area', async ({
+  page,
+}) => {
   const consoleErrors: string[] = [];
   page.on('console', (message) => {
     if (message.type() === 'error') {
@@ -356,21 +446,35 @@ test('moves with visible virtual controls on small screens', async ({ page }) =>
   });
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
-  await page.getByRole('button', { name: /continue/i }).click();
-  await expect(page.getByRole('heading', { name: 'Grass Blocks' })).toBeVisible();
+  await startFirstLevel(page);
+
+  await expect(
+    page.getByRole('heading', { name: 'Turn your phone sideways' }),
+  ).toBeVisible();
+  await expect(page.locator('canvas')).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Move right' })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Jump' })).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'Grass Blocks' })).toBeHidden();
+  expect(consoleErrors).toEqual([]);
+});
+
+test('moves with visible virtual controls in mobile landscape', async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      consoleErrors.push(message.text());
+    }
+  });
+
+  await page.setViewportSize({ width: 700, height: 390 });
+  await startFirstLevel(page);
 
   const canvas = page.locator('canvas');
   const gameFrame = page.locator('.game-canvas');
-  await expect(canvas).toBeVisible();
-  await expect
-    .poll(() =>
-      canvas.evaluate((element) => {
-        const node = element as HTMLCanvasElement;
-        return node.width > 0 && node.height > 0;
-      }),
-    )
-    .toBe(true);
+  await expectCanvasReady(canvas);
+  await expect(
+    page.getByRole('heading', { name: 'Turn your phone sideways' }),
+  ).toBeHidden();
 
   const rightButton = page.getByRole('button', { name: 'Move right' });
   await expect(rightButton).toBeVisible();
@@ -397,6 +501,72 @@ test('moves with visible virtual controls on small screens', async ({ page }) =>
   expect(consoleErrors).toEqual([]);
 });
 
+test('keeps the maths answer modal inside a short landscape viewport', async ({
+  page,
+}) => {
+  const consoleErrors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      consoleErrors.push(message.text());
+    }
+  });
+
+  await page.setViewportSize({ width: 700, height: 390 });
+  await startFirstLevel(page);
+  await openMathsModal(page);
+
+  const modal = page.getByRole('dialog');
+  await expect(modal).toBeVisible();
+  await expect(page.getByRole('button', { exact: true, name: '10' })).toBeVisible();
+
+  const modalBox = await modal.boundingBox();
+  const viewport = page.viewportSize();
+
+  if (!modalBox || !viewport) {
+    throw new Error('Maths modal or viewport was not measurable.');
+  }
+
+  expect(modalBox.x).toBeGreaterThanOrEqual(0);
+  expect(modalBox.y).toBeGreaterThanOrEqual(0);
+  expect(modalBox.x + modalBox.width).toBeLessThanOrEqual(viewport.width);
+  expect(modalBox.y + modalBox.height).toBeLessThanOrEqual(viewport.height);
+  expect(consoleErrors).toEqual([]);
+});
+
+test('keeps multiple virtual controls pressed at the same time', async ({
+  page,
+}) => {
+  const consoleErrors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      consoleErrors.push(message.text());
+    }
+  });
+
+  await page.setViewportSize({ width: 700, height: 390 });
+  await startFirstLevel(page);
+
+  const rightButton = page.getByRole('button', { name: 'Move right' });
+  const jumpButton = page.getByRole('button', { name: 'Jump' });
+  await expect(rightButton).toBeVisible();
+  await expect(jumpButton).toBeVisible();
+
+  await dispatchTouchPointer(rightButton, 'pointerdown', 1);
+  await expect(rightButton).toHaveAttribute('aria-pressed', 'true');
+
+  await dispatchTouchPointer(jumpButton, 'pointerdown', 2);
+  await expect(rightButton).toHaveAttribute('aria-pressed', 'true');
+  await expect(jumpButton).toHaveAttribute('aria-pressed', 'true');
+
+  await dispatchTouchPointer(rightButton, 'pointerup', 1);
+  await expect(rightButton).toHaveAttribute('aria-pressed', 'false');
+  await expect(jumpButton).toHaveAttribute('aria-pressed', 'true');
+
+  await dispatchTouchPointer(jumpButton, 'pointerup', 2);
+  await expect(jumpButton).toHaveAttribute('aria-pressed', 'false');
+  expect(consoleErrors).toEqual([]);
+});
+
 test('handles the virtual jump control without console errors', async ({ page }) => {
   const consoleErrors: string[] = [];
   page.on('console', (message) => {
@@ -405,10 +575,8 @@ test('handles the virtual jump control without console errors', async ({ page })
     }
   });
 
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
-  await page.getByRole('button', { name: /continue/i }).click();
-  await expect(page.getByRole('heading', { name: 'Grass Blocks' })).toBeVisible();
+  await page.setViewportSize({ width: 700, height: 390 });
+  await startFirstLevel(page);
 
   const jumpButton = page.getByRole('button', { name: 'Jump' });
   await expect(jumpButton).toBeVisible();
@@ -448,6 +616,7 @@ test('renders Cave Run as an unlocked playable level', async ({ page }) => {
   await page.getByRole('button', { exact: true, name: 'Map' }).click();
 
   const caveRun = page.locator('.level-card').filter({ hasText: 'Cave Run' });
+  expect(getLevel('level-2').snakePatrols?.length ?? 0).toBeGreaterThan(0);
   await caveRun.getByRole('button', { name: /play/i }).click();
 
   await expect(page.getByRole('heading', { name: 'Cave Run' })).toBeVisible();

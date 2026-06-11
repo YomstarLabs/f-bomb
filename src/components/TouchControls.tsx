@@ -39,6 +39,36 @@ function createPointerState(): Record<VirtualControl, Set<number>> {
   };
 }
 
+function capturePointer(
+  target: HTMLButtonElement,
+  pointerId: number,
+): void {
+  if (target.hasPointerCapture(pointerId)) {
+    return;
+  }
+
+  try {
+    target.setPointerCapture(pointerId);
+  } catch {
+    // Some synthetic pointer events are not eligible for capture.
+  }
+}
+
+function releasePointerCapture(
+  target: HTMLButtonElement,
+  pointerId: number,
+): void {
+  if (!target.hasPointerCapture(pointerId)) {
+    return;
+  }
+
+  try {
+    target.releasePointerCapture(pointerId);
+  } catch {
+    // Pointer capture may already be gone after cancellation.
+  }
+}
+
 export default function TouchControls() {
   const pointerIdsRef = useRef<Record<VirtualControl, Set<number>>>(
     createPointerState(),
@@ -122,10 +152,7 @@ export default function TouchControls() {
   ): void {
     event.preventDefault();
 
-    if (!event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.setPointerCapture(event.pointerId);
-    }
-
+    capturePointer(event.currentTarget, event.pointerId);
     pointerIdsRef.current[control].add(event.pointerId);
     setControlPressed(control, true);
   }
@@ -136,10 +163,7 @@ export default function TouchControls() {
   ): void {
     event.preventDefault();
     releasePointer(control, event.pointerId);
-
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
+    releasePointerCapture(event.currentTarget, event.pointerId);
   }
 
   function renderButton(control: VirtualControl) {
