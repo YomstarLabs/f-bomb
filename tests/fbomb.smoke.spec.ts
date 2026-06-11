@@ -34,6 +34,7 @@ test('boots the menu and renders an interactive Phaser canvas', async ({ page })
   const after = await canvas.screenshot();
 
   expect(Buffer.compare(before, after)).not.toBe(0);
+  await expect(page.getByRole('button', { name: 'Move right' })).toBeHidden();
   expect(consoleErrors).toEqual([]);
 });
 
@@ -51,6 +52,7 @@ test('moves with visible virtual controls on small screens', async ({ page }) =>
   await expect(page.getByRole('heading', { name: 'Grass Blocks' })).toBeVisible();
 
   const canvas = page.locator('canvas');
+  const gameFrame = page.locator('.game-canvas');
   await expect(canvas).toBeVisible();
   await expect
     .poll(() =>
@@ -65,10 +67,16 @@ test('moves with visible virtual controls on small screens', async ({ page }) =>
   await expect(rightButton).toBeVisible();
 
   const before = await canvas.screenshot();
+  const frameBox = await gameFrame.boundingBox();
   const box = await rightButton.boundingBox();
-  if (!box) {
+  if (!frameBox || !box) {
     throw new Error('Move right button was not measurable.');
   }
+
+  expect(box.x).toBeGreaterThanOrEqual(frameBox.x);
+  expect(box.y).toBeGreaterThanOrEqual(frameBox.y);
+  expect(box.x + box.width).toBeLessThanOrEqual(frameBox.x + frameBox.width);
+  expect(box.y + box.height).toBeLessThanOrEqual(frameBox.y + frameBox.height);
 
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();

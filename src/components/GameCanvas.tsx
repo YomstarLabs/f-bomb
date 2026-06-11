@@ -3,6 +3,7 @@ import type Phaser from 'phaser';
 import { createFbombGame } from '../game/FbombGame';
 import { GameEvents, type LevelCompletePayload, type MathsRequestPayload } from '../game/events';
 import type { GameSettings } from '../game/systems/settingsService';
+import TouchControls from './TouchControls';
 
 type GameCanvasProps = {
   levelId: string;
@@ -43,5 +44,9 @@ export default function GameCanvas({
     };
   }, [levelId, settings]);
 
-  return <div className="game-canvas" ref={hostRef} />;
+  return (
+    <div className="game-canvas" ref={hostRef}>
+      <TouchControls />
+    </div>
+  );
 }

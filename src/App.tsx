@@ -5,7 +5,6 @@ import LevelSelect from './components/LevelSelect';
 import MathsQuestionModal from './components/MathsQuestionModal';
 import ParentSettings from './components/ParentSettings';
 import RewardScreen from './components/RewardScreen';
-import TouchControls from './components/TouchControls';
 import { GameEvents, type LevelCompletePayload, type MathsRequestPayload } from './game/events';
 import { getLevel, getNextLevelId, levels } from './game/systems/levelRegistry';
 import {
@@ -196,7 +195,6 @@ export default function App() {
             onLevelComplete={handleLevelComplete}
             onQuestionRequested={handleQuestionRequested}
           />
-          <TouchControls />
           <div className="control-strip">
             <span>Move: A/D, arrows or touch buttons</span>
             <span>Jump: W, up arrow, space or touch jump</span>
