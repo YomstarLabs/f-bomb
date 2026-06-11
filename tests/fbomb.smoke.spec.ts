@@ -594,6 +594,94 @@ test('handles the virtual jump control without console errors', async ({ page })
   expect(consoleErrors).toEqual([]);
 });
 
+test('clears Granite Run 31 opening spike gap with jump controls', async ({
+  page,
+}) => {
+  const consoleErrors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      consoleErrors.push(message.text());
+    }
+  });
+
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      'fbomb.progress.v1',
+      JSON.stringify({
+        completedLevels: Array.from(
+          { length: 30 },
+          (_, index) => `level-${index + 1}`,
+        ),
+        rewards: [],
+      }),
+    );
+  });
+
+  await page.goto('/');
+  await page.getByRole('button', { exact: true, name: 'Map' }).click();
+
+  const graniteRun = page
+    .locator('.level-card')
+    .filter({ hasText: 'Granite Run 31' });
+  await graniteRun.getByRole('button', { name: /play/i }).click();
+
+  await expect(
+    page.getByRole('heading', { name: 'Granite Run 31' }),
+  ).toBeVisible();
+  await expect(page.locator('canvas')).toBeVisible();
+
+  await page.evaluate(() => {
+    const target = window as Window & { __fbombResetMessages?: string[] };
+    const canvas = document.querySelector('canvas');
+
+    if (!canvas) {
+      throw new Error('Game canvas was not found.');
+    }
+
+    target.__fbombResetMessages = [];
+    canvas.addEventListener('fbomb:soft-reset', (event) => {
+      const detail = (event as CustomEvent<{ message?: string }>).detail;
+      target.__fbombResetMessages?.push(detail.message ?? 'reset');
+    });
+  });
+
+  await page.evaluate(async () => {
+    const { GameEvents } = await import('/src/game/events.ts');
+    GameEvents.emit('input:virtual-control', { control: 'right', active: true });
+  });
+
+  await page.waitForTimeout(1180);
+
+  await page.evaluate(async () => {
+    const { GameEvents } = await import('/src/game/events.ts');
+    GameEvents.emit('input:virtual-control', { control: 'jump', active: true });
+  });
+
+  await page.waitForTimeout(160);
+
+  await page.evaluate(async () => {
+    const { GameEvents } = await import('/src/game/events.ts');
+    GameEvents.emit('input:virtual-control', { control: 'jump', active: false });
+  });
+
+  await page.waitForTimeout(1200);
+
+  await page.evaluate(async () => {
+    const { GameEvents } = await import('/src/game/events.ts');
+    GameEvents.emit('input:virtual-control', { control: 'right', active: false });
+  });
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const target = window as Window & { __fbombResetMessages?: string[] };
+        return target.__fbombResetMessages ?? [];
+      }),
+    )
+    .toEqual([]);
+  expect(consoleErrors).toEqual([]);
+});
+
 test('renders Cave Run as an unlocked playable level', async ({ page }) => {
   const consoleErrors: string[] = [];
   page.on('console', (message) => {

@@ -1,6 +1,8 @@
 import type { QuestionMode } from './questionGenerator';
 import type { Reward } from './rewardService';
 
+const TILE = 32;
+
 export type Point = {
   x: number;
   y: number;
@@ -475,6 +477,8 @@ const generatedThemes: GeneratedTheme[] = [
   },
 ];
 
+const GAP_HAZARD_LANDING_CLEARANCE = 96;
+
 function getMathProfile(levelNumber: number): MathProfile {
   if (levelNumber <= 20) {
     return {
@@ -592,10 +596,11 @@ function createGeneratedLevel(levelNumber: number): LevelDefinition {
   let segmentIndex = 0;
 
   while (cursor < worldWidth - 500) {
-    const gap = Math.min(
+    const generatedGap = Math.min(
       176,
       96 + ((levelNumber + segmentIndex) % 3) * 32 + Math.floor(stage / 5) * 16,
     );
+    const gap = segmentIndex === 0 ? Math.min(generatedGap, 96) : generatedGap;
     const segmentX = cursor + gap;
     const segmentWidth =
       6 + ((levelNumber + segmentIndex) % 4) + Math.floor(stage / 4);
@@ -621,7 +626,7 @@ function createGeneratedLevel(levelNumber: number): LevelDefinition {
       hazards.push({
         x: cursor + 16,
         y: 432,
-        width: Math.max(64, gap - 32),
+        width: Math.max(TILE, gap - GAP_HAZARD_LANDING_CLEARANCE),
       });
     }
 
@@ -635,6 +640,7 @@ function createGeneratedLevel(levelNumber: number): LevelDefinition {
 
     if (
       (stage >= 1 || localIndex >= 5) &&
+      segmentIndex > 0 &&
       segmentIndex % 4 === 0 &&
       droppingBombs.length < maxDroppingBombs
     ) {
