@@ -9,14 +9,19 @@ export type QuestionMode =
   | 'missing-number'
   | 'geometry'
   | 'fraction'
+  | 'time'
+  | 'power'
+  | 'root'
   | 'two-step'
   | 'mixed';
+
+export type MathAnswer = number | string;
 
 export type MathQuestion = {
   id: string;
   prompt: string;
-  answer: number;
-  options: number[];
+  answer: MathAnswer;
+  options: MathAnswer[];
   hint: string;
   explanation: string;
 };
@@ -25,7 +30,7 @@ function randomInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function shuffle(values: number[]): number[] {
+function shuffle<T>(values: T[]): T[] {
   return [...values].sort(() => Math.random() - 0.5);
 }
 
@@ -36,6 +41,24 @@ function makeOptions(answer: number): number[] {
   while (options.size < 4) {
     const value = Math.max(0, answer + randomInt(-spread, spread + 3));
     options.add(value);
+  }
+
+  return shuffle([...options]);
+}
+
+function makeTextOptions(answer: string, distractors: string[]): string[] {
+  const options = new Set<string>([answer]);
+
+  for (const distractor of distractors) {
+    options.add(distractor);
+
+    if (options.size >= 4) {
+      break;
+    }
+  }
+
+  while (options.size < 4) {
+    options.add(`${randomInt(1, 11)}/${randomInt(2, 12)}`);
   }
 
   return shuffle([...options]);
@@ -57,6 +80,72 @@ function maxMultiplier(mathTier: number): number {
 
 function getTable(settings: GameSettings): number {
   return settings.timesTables[randomInt(0, settings.timesTables.length - 1)] ?? 2;
+}
+
+function gcd(a: number, b: number): number {
+  let left = Math.abs(a);
+  let right = Math.abs(b);
+
+  while (right !== 0) {
+    const next = left % right;
+    left = right;
+    right = next;
+  }
+
+  return left || 1;
+}
+
+function lcm(a: number, b: number): number {
+  return (a * b) / gcd(a, b);
+}
+
+function simplifyFraction(numerator: number, denominator: number): [number, number] {
+  const divisor = gcd(numerator, denominator);
+  return [numerator / divisor, denominator / divisor];
+}
+
+function formatFraction(numerator: number, denominator: number): string {
+  const [simpleNumerator, simpleDenominator] = simplifyFraction(
+    numerator,
+    denominator,
+  );
+  return simpleDenominator === 1
+    ? `${simpleNumerator}`
+    : `${simpleNumerator}/${simpleDenominator}`;
+}
+
+function formatClock(totalMinutes: number): string {
+  const normalized = ((totalMinutes % 720) + 720) % 720;
+  const hour = Math.floor(normalized / 60);
+  const minute = normalized % 60;
+  const displayHour = hour === 0 ? 12 : hour;
+  return `${displayHour}:${minute.toString().padStart(2, '0')}`;
+}
+
+function describeClock(totalMinutes: number): string {
+  const normalized = ((totalMinutes % 720) + 720) % 720;
+  const hour = Math.floor(normalized / 60);
+  const minute = normalized % 60;
+  const displayHour = hour === 0 ? 12 : hour;
+  const nextHour = displayHour === 12 ? 1 : displayHour + 1;
+
+  if (minute === 0) {
+    return `${displayHour} o'clock`;
+  }
+
+  if (minute === 15) {
+    return `quarter past ${displayHour}`;
+  }
+
+  if (minute === 30) {
+    return `half past ${displayHour}`;
+  }
+
+  if (minute === 45) {
+    return `quarter to ${nextHour}`;
+  }
+
+  return formatClock(totalMinutes);
 }
 
 function addition(settings: GameSettings, mathTier: number): MathQuestion {
@@ -189,6 +278,53 @@ function geometry(mathTier: number): MathQuestion {
 }
 
 function fraction(mathTier: number): MathQuestion {
+  if (mathTier >= 14 && Math.random() > 0.35) {
+    const useDifferentDenominators = mathTier >= 28 && Math.random() > 0.45;
+    const denominatorChoices = mathTier >= 42 ? [3, 4, 5, 6, 8, 10, 12] : [2, 3, 4, 6, 8];
+    const denominatorA =
+      denominatorChoices[randomInt(0, denominatorChoices.length - 1)] ?? 4;
+    const denominatorB = useDifferentDenominators
+      ? denominatorChoices[randomInt(0, denominatorChoices.length - 1)] ?? 6
+      : denominatorA;
+    const numeratorA = randomInt(1, denominatorA - 1);
+    const numeratorB = randomInt(1, denominatorB - 1);
+    const subtract = mathTier >= 24 && Math.random() > 0.62;
+    const commonDenominator = lcm(denominatorA, denominatorB);
+    const scaledA = numeratorA * (commonDenominator / denominatorA);
+    const scaledB = numeratorB * (commonDenominator / denominatorB);
+    const top = subtract ? Math.max(scaledA, scaledB) : scaledA;
+    const bottom = subtract ? Math.min(scaledA, scaledB) : scaledB;
+    const answerNumerator = subtract ? top - bottom : top + bottom;
+    const answer = formatFraction(answerNumerator, commonDenominator);
+    const left = subtract
+      ? formatFraction(top, commonDenominator)
+      : `${numeratorA}/${denominatorA}`;
+    const right = subtract
+      ? formatFraction(bottom, commonDenominator)
+      : `${numeratorB}/${denominatorB}`;
+    const operator = subtract ? '-' : '+';
+    const [simpleNumerator, simpleDenominator] = simplifyFraction(
+      answerNumerator,
+      commonDenominator,
+    );
+    const distractors = [
+      formatFraction(Math.max(1, simpleNumerator + 1), simpleDenominator),
+      formatFraction(Math.max(1, simpleNumerator - 1), simpleDenominator),
+      formatFraction(answerNumerator, Math.max(2, commonDenominator + 2)),
+      formatFraction(answerNumerator + 1, commonDenominator),
+      formatFraction(Math.max(1, answerNumerator - 1), commonDenominator),
+    ];
+
+    return {
+      id: questionId(),
+      prompt: `What is ${left} ${operator} ${right}?`,
+      answer,
+      options: makeTextOptions(answer, distractors),
+      hint: `Use a common denominator of ${commonDenominator}.`,
+      explanation: `${left} ${operator} ${right} = ${answer}`,
+    };
+  }
+
   const divisor = mathTier >= 8 && Math.random() > 0.45 ? 4 : 2;
   const answer = randomInt(2, Math.min(12, mathTier + 4));
   const total = answer * divisor;
@@ -201,6 +337,81 @@ function fraction(mathTier: number): MathQuestion {
     options: makeOptions(answer),
     hint: `Split ${total} into ${divisor} equal groups.`,
     explanation: `${total} / ${divisor} = ${answer}`,
+  };
+}
+
+function timeMath(mathTier: number): MathQuestion {
+  const hour = randomInt(1, 11);
+  const minuteChoices = [0, 15, 30, 45];
+  const startMinute = minuteChoices[randomInt(0, minuteChoices.length - 1)] ?? 0;
+  const start = hour * 60 + startMinute;
+  const minuteDeltas =
+    mathTier >= 45 ? [15, 30, 45, 60, 75, 90, 120] : [15, 30, 45, 60, 90];
+  const delta = minuteDeltas[randomInt(0, minuteDeltas.length - 1)] ?? 30;
+  const subtract = mathTier >= 28 && Math.random() > 0.66;
+  const answerMinutes = subtract ? start - delta : start + delta;
+  const answer = formatClock(answerMinutes);
+  const distractors = [
+    formatClock(answerMinutes + 15),
+    formatClock(answerMinutes - 15),
+    formatClock(answerMinutes + 30),
+    formatClock(answerMinutes - 30),
+    formatClock(answerMinutes + 60),
+  ];
+
+  return {
+    id: questionId(),
+    prompt: `What is ${describeClock(start)} ${
+      subtract ? 'minus' : 'plus'
+    } ${delta} minutes?`,
+    answer,
+    options: makeTextOptions(answer, distractors),
+    hint: `Move ${delta} minutes ${subtract ? 'back' : 'forward'} from ${formatClock(
+      start,
+    )}.`,
+    explanation: `${formatClock(start)} ${subtract ? '-' : '+'} ${delta} minutes = ${answer}`,
+  };
+}
+
+function power(mathTier: number): MathQuestion {
+  const useCube = mathTier >= 68 && Math.random() > 0.45;
+  const base = useCube
+    ? randomInt(2, Math.min(10, Math.max(5, Math.floor(mathTier / 9))))
+    : randomInt(2, Math.min(15, Math.max(6, Math.floor(mathTier / 5))));
+  const answer = useCube ? base * base * base : base * base;
+
+  return {
+    id: questionId(),
+    prompt: `What is ${base} ${useCube ? 'cubed' : 'squared'}?`,
+    answer,
+    options: makeOptions(answer),
+    hint: useCube
+      ? `Multiply ${base} x ${base} x ${base}.`
+      : `Multiply ${base} x ${base}.`,
+    explanation: useCube
+      ? `${base} x ${base} x ${base} = ${answer}`
+      : `${base} x ${base} = ${answer}`,
+  };
+}
+
+function root(mathTier: number): MathQuestion {
+  const useCubeRoot = mathTier >= 78 && Math.random() > 0.45;
+  const answer = useCubeRoot
+    ? randomInt(2, Math.min(10, Math.max(5, Math.floor(mathTier / 9))))
+    : randomInt(2, Math.min(15, Math.max(7, Math.floor(mathTier / 5))));
+  const radicand = useCubeRoot ? answer * answer * answer : answer * answer;
+
+  return {
+    id: questionId(),
+    prompt: `What is the ${useCubeRoot ? 'cube' : 'square'} root of ${radicand}?`,
+    answer,
+    options: makeOptions(answer),
+    hint: useCubeRoot
+      ? `Find the number that makes ${radicand} when cubed.`
+      : `Find the number that makes ${radicand} when squared.`,
+    explanation: useCubeRoot
+      ? `${answer} cubed = ${radicand}`
+      : `${answer} squared = ${radicand}`,
   };
 }
 
@@ -247,6 +458,9 @@ const mixedModes: QuestionMode[] = [
   'missing-number',
   'geometry',
   'fraction',
+  'time',
+  'power',
+  'root',
   'two-step',
 ];
 
@@ -265,6 +479,18 @@ function modeAllowed(mode: QuestionMode, settings: GameSettings): boolean {
 
   if (mode === 'fraction') {
     return settings.fractionsEnabled;
+  }
+
+  if (mode === 'time') {
+    return settings.timeMathEnabled;
+  }
+
+  if (mode === 'power') {
+    return settings.powersEnabled;
+  }
+
+  if (mode === 'root') {
+    return settings.rootsEnabled;
   }
 
   if (mode === 'two-step') {
@@ -332,6 +558,18 @@ export function generateQuestion(
 
   if (mode === 'fraction') {
     return fraction(mathTier);
+  }
+
+  if (mode === 'time') {
+    return timeMath(mathTier);
+  }
+
+  if (mode === 'power') {
+    return power(mathTier);
+  }
+
+  if (mode === 'root') {
+    return root(mathTier);
   }
 
   if (mode === 'two-step') {

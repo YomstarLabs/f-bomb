@@ -52,9 +52,10 @@ export type LevelDefinition = {
   crumbleBlocks?: BlockRun[];
   disappearingBlocks?: BlockRun[];
   switchBridge?: BlockRun;
+  worldWidth?: number;
 };
 
-export const levels: LevelDefinition[] = [
+const baseLevels: LevelDefinition[] = [
   {
     id: 'level-1',
     title: 'Grass Blocks',
@@ -362,6 +363,329 @@ export const levels: LevelDefinition[] = [
     ],
   },
 ];
+
+type GeneratedTheme = {
+  name: string;
+  theme: string;
+  texture: string;
+  background: string;
+  accent: string;
+  rewardNoun: string;
+};
+
+type MathProfile = {
+  focus: string;
+  modes: QuestionMode[];
+};
+
+const generatedThemes: GeneratedTheme[] = [
+  {
+    name: 'Meadow',
+    theme: 'Open grass causeway',
+    texture: 'grass-block',
+    background: '#80cde7',
+    accent: '#2f9e44',
+    rewardNoun: 'meadow coin',
+  },
+  {
+    name: 'Granite',
+    theme: 'Deep stone passage',
+    texture: 'stone-block',
+    background: '#475569',
+    accent: '#cbd5e1',
+    rewardNoun: 'granite chip',
+  },
+  {
+    name: 'Crystal',
+    theme: 'Bright crystal climb',
+    texture: 'crystal-block',
+    background: '#164e63',
+    accent: '#22d3ee',
+    rewardNoun: 'crystal spark',
+  },
+  {
+    name: 'Clockwork',
+    theme: 'Copper machine run',
+    texture: 'gear-block',
+    background: '#5b4636',
+    accent: '#f59e0b',
+    rewardNoun: 'clockwork cog',
+  },
+  {
+    name: 'Prism',
+    theme: 'Glass prism bridges',
+    texture: 'prism-block',
+    background: '#3730a3',
+    accent: '#c4b5fd',
+    rewardNoun: 'prism shard',
+  },
+  {
+    name: 'Forge',
+    theme: 'Molten forge crossing',
+    texture: 'forge-block',
+    background: '#451a03',
+    accent: '#fb923c',
+    rewardNoun: 'forge ember',
+  },
+  {
+    name: 'Skyline',
+    theme: 'Windy sky platforms',
+    texture: 'sky-block',
+    background: '#7dd3fc',
+    accent: '#2563eb',
+    rewardNoun: 'sky token',
+  },
+  {
+    name: 'Core',
+    theme: 'Red bomb core route',
+    texture: 'core-block',
+    background: '#111827',
+    accent: '#ef4444',
+    rewardNoun: 'core badge',
+  },
+];
+
+function getMathProfile(levelNumber: number): MathProfile {
+  if (levelNumber <= 20) {
+    return {
+      focus: 'Number fluency and simple fractions',
+      modes:
+        levelNumber < 16
+          ? ['addition', 'subtraction', 'multiplication', 'sequence']
+          : ['addition', 'subtraction', 'multiplication', 'fraction', 'sequence'],
+    };
+  }
+
+  if (levelNumber <= 30) {
+    return {
+      focus: 'Clock arithmetic and fraction starts',
+      modes: ['time', 'fraction', 'addition', 'subtraction', 'missing-number'],
+    };
+  }
+
+  if (levelNumber <= 40) {
+    return {
+      focus: 'Division, mixed fractions and two-step maths',
+      modes: ['division', 'multiplication', 'fraction', 'time', 'two-step'],
+    };
+  }
+
+  if (levelNumber <= 50) {
+    return {
+      focus: 'Squares, arrays and two-step puzzles',
+      modes: ['power', 'geometry', 'multiplication', 'two-step'],
+    };
+  }
+
+  if (levelNumber <= 60) {
+    return {
+      focus: 'Fractions, time and powers',
+      modes: ['fraction', 'time', 'power', 'two-step', 'mixed'],
+    };
+  }
+
+  if (levelNumber <= 70) {
+    return {
+      focus: 'Square roots and powers',
+      modes: ['root', 'power', 'multiplication', 'division'],
+    };
+  }
+
+  if (levelNumber <= 80) {
+    return {
+      focus: 'Cubes and tougher roots',
+      modes: ['power', 'root', 'two-step', 'mixed'],
+    };
+  }
+
+  if (levelNumber <= 90) {
+    return {
+      focus: 'Cube roots, fractions and time',
+      modes: ['root', 'power', 'time', 'fraction', 'two-step'],
+    };
+  }
+
+  return {
+    focus: 'Expert mixed defuse',
+    modes: ['mixed', 'root', 'power', 'time', 'fraction'],
+  };
+}
+
+function getMechanicSummary(stage: number): string {
+  const summaries = [
+    'Longer jumps over spike gaps',
+    'Spike gaps with falling blocks',
+    'Moving lifts across split ground',
+    'Crumbling steps and falling blocks',
+    'Disappearing blocks over hazards',
+    'Switch bridge with moving lifts',
+    'Layered lifts and crumble routes',
+    'Fast disappearing blocks and falling traps',
+    'Long expert route with every trap type',
+  ];
+
+  return summaries[Math.min(stage, summaries.length - 1)];
+}
+
+function createGeneratedLevel(levelNumber: number): LevelDefinition {
+  const generatedIndex = levelNumber - 10;
+  const stage = Math.floor((generatedIndex - 1) / 10);
+  const localIndex = ((generatedIndex - 1) % 10) + 1;
+  const theme =
+    generatedThemes[(levelNumber + stage) % generatedThemes.length] ??
+    generatedThemes[0];
+  const mathProfile = getMathProfile(levelNumber);
+  const worldWidth = 1536 + stage * 176 + Math.floor((localIndex - 1) / 3) * 96;
+  const platformTexture = theme.texture;
+  const bombX = worldWidth - 440;
+  const exitX = worldWidth - 150;
+  const platforms: BlockRun[] = [
+    { x: 0, y: 448, width: 12, texture: platformTexture },
+    {
+      x: worldWidth - 384,
+      y: 448,
+      width: 12 + Math.min(4, Math.floor(stage / 2)),
+      texture: platformTexture,
+    },
+    { x: bombX - 84, y: 320, width: 6, texture: platformTexture },
+  ];
+  const hazards: Hazard[] = [];
+  const fallingBlocks: FallingBlock[] = [];
+  const movingPlatforms: MovingPlatform[] = [];
+  const crumbleBlocks: BlockRun[] = [];
+  const disappearingBlocks: BlockRun[] = [];
+  let cursor = 384;
+  let segmentIndex = 0;
+
+  while (cursor < worldWidth - 500) {
+    const gap = Math.min(
+      176,
+      96 + ((levelNumber + segmentIndex) % 3) * 32 + Math.floor(stage / 5) * 16,
+    );
+    const segmentX = cursor + gap;
+    const segmentWidth =
+      6 + ((levelNumber + segmentIndex) % 4) + Math.floor(stage / 4);
+    const platformY = 448 - ((segmentIndex + stage) % 2) * 24;
+    const midGapX = cursor + Math.floor(gap / 2) - 32;
+    const upperY = 360 - ((segmentIndex + stage) % 3) * 24;
+
+    platforms.push({
+      x: segmentX,
+      y: platformY,
+      width: segmentWidth,
+      texture: platformTexture,
+    });
+
+    platforms.push({
+      x: midGapX,
+      y: upperY,
+      width: 3 + ((localIndex + segmentIndex) % 2),
+      texture: platformTexture,
+    });
+
+    if ((segmentIndex + stage) % 2 === 0) {
+      hazards.push({
+        x: cursor + 16,
+        y: 432,
+        width: Math.max(64, gap - 32),
+      });
+    }
+
+    if (stage >= 1 && segmentIndex % 3 === 1) {
+      hazards.push({
+        x: segmentX + 64,
+        y: platformY - 16,
+        width: 64 + (stage % 2) * 32,
+      });
+    }
+
+    if (stage >= 1 && segmentIndex % 4 === 0 && fallingBlocks.length < 4) {
+      fallingBlocks.push({
+        x: segmentX + 80,
+        y: 120 + (segmentIndex % 2) * 24,
+        triggerX: segmentX - 20,
+      });
+    }
+
+    if (stage >= 2 && segmentIndex % 4 === 2 && movingPlatforms.length < 3) {
+      movingPlatforms.push({
+        x: midGapX + 24,
+        y: 356 - (stage % 2) * 24,
+        distance: 120 + (localIndex % 3) * 24,
+      });
+    }
+
+    if (stage >= 3 && segmentIndex % 3 === 2 && crumbleBlocks.length < 4) {
+      crumbleBlocks.push({
+        x: segmentX + 32,
+        y: platformY - 96,
+        width: 2 + (stage % 2),
+        texture: 'crack-block',
+      });
+    }
+
+    if (stage >= 4 && segmentIndex % 4 === 1 && disappearingBlocks.length < 4) {
+      disappearingBlocks.push({
+        x: midGapX + 8,
+        y: upperY - 48,
+        width: 3,
+        texture: localIndex % 2 === 0 ? 'hot-block' : 'fraction-block',
+      });
+    }
+
+    cursor = segmentX + segmentWidth * 32;
+    segmentIndex += 1;
+  }
+
+  const switchBridge =
+    stage >= 5 && localIndex % 3 === 0
+      ? {
+          x: 520 + stage * 24,
+          y: 352,
+          width: 5 + Math.min(4, stage - 4),
+          texture: 'gear-bridge-block',
+        }
+      : undefined;
+
+  if (switchBridge) {
+    platforms.push({ x: 320, y: 352, width: 4, texture: platformTexture });
+    hazards.push({ x: switchBridge.x, y: 432, width: switchBridge.width * 32 });
+  }
+
+  return {
+    id: `level-${levelNumber}`,
+    title: `${theme.name} Run ${levelNumber}`,
+    theme: theme.theme,
+    mechanic: getMechanicSummary(stage),
+    mathFocus: mathProfile.focus,
+    mathTier: levelNumber,
+    questionModes: mathProfile.modes,
+    reward: {
+      id: `level-${levelNumber}-reward`,
+      label: `${theme.rewardNoun} ${localIndex}`,
+      color: theme.accent,
+    },
+    background: theme.background,
+    accent: theme.accent,
+    spawn: { x: 90, y: 360 },
+    bomb: { x: bombX, y: 292 },
+    exit: { x: exitX, y: 352 },
+    platforms,
+    hazards,
+    fallingBlocks,
+    movingPlatforms,
+    crumbleBlocks,
+    disappearingBlocks,
+    switchBridge,
+    worldWidth,
+  };
+}
+
+const generatedLevels = Array.from({ length: 90 }, (_, index) =>
+  createGeneratedLevel(index + 11),
+);
+
+export const levels: LevelDefinition[] = [...baseLevels, ...generatedLevels];
 
 export function getLevel(levelId: string): LevelDefinition {
   return levels.find((level) => level.id === levelId) ?? levels[0];

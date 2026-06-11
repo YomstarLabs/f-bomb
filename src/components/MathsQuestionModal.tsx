@@ -1,6 +1,6 @@
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import type { MathQuestion } from '../game/systems/questionGenerator';
+import type { MathAnswer, MathQuestion } from '../game/systems/questionGenerator';
 import type { GameSettings } from '../game/systems/settingsService';
 
 type MathsQuestionModalProps = {
@@ -15,7 +15,7 @@ export default function MathsQuestionModal({
   onCorrect,
 }: MathsQuestionModalProps) {
   const [attempts, setAttempts] = useState(0);
-  const [selected, setSelected] = useState<number | null>(null);
+  const [selected, setSelected] = useState<MathAnswer | null>(null);
   const [timeLeft, setTimeLeft] = useState(20);
   const showHint =
     attempts > 0 &&
@@ -49,7 +49,7 @@ export default function MathsQuestionModal({
     return () => window.clearInterval(timer);
   }, [question.answer, selected, settings.timedQuestions]);
 
-  function chooseAnswer(value: number): void {
+  function chooseAnswer(value: MathAnswer): void {
     setSelected(value);
 
     if (value === question.answer) {

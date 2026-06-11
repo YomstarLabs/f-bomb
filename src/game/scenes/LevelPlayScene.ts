@@ -12,7 +12,7 @@ import type { GameSettings } from '../systems/settingsService';
 import type { SceneRunConfig } from './BootScene';
 
 const TILE = 32;
-const WORLD_WIDTH = 1536;
+const DEFAULT_WORLD_WIDTH = 1536;
 const WORLD_HEIGHT = 512;
 const DISAPPEARING_BLOCK_VISIBLE_MS = 2600;
 const DISAPPEARING_BLOCK_HIDDEN_MS = 900;
@@ -69,8 +69,9 @@ export default class LevelPlayScene extends Phaser.Scene {
       throw new Error('LevelPlayScene started without level config.');
     }
 
-    this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
-    this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+    const worldWidth = this.getWorldWidth();
+    this.physics.world.setBounds(0, 0, worldWidth, WORLD_HEIGHT);
+    this.cameras.main.setBounds(0, 0, worldWidth, WORLD_HEIGHT);
     this.cameras.main.setBackgroundColor(this.level.background);
     this.game.canvas.setAttribute('tabindex', '0');
 
@@ -204,7 +205,10 @@ export default class LevelPlayScene extends Phaser.Scene {
   }
 
   private addWorldDecoration(): void {
-    for (let i = 0; i < 9; i += 1) {
+    const worldWidth = this.getWorldWidth();
+    const decorationCount = Math.ceil(worldWidth / 170);
+
+    for (let i = 0; i < decorationCount; i += 1) {
       const x = 130 + i * 170;
       const y = 76 + (i % 3) * 28;
       const size = 22 + (i % 2) * 8;
@@ -214,9 +218,13 @@ export default class LevelPlayScene extends Phaser.Scene {
     }
 
     this.add
-      .rectangle(WORLD_WIDTH / 2, WORLD_HEIGHT - 28, WORLD_WIDTH, 56, 0x111827, 0.18)
+      .rectangle(worldWidth / 2, WORLD_HEIGHT - 28, worldWidth, 56, 0x111827, 0.18)
       .setDepth(-1);
 
+  }
+
+  private getWorldWidth(): number {
+    return this.level?.worldWidth ?? DEFAULT_WORLD_WIDTH;
   }
 
   private addBlockRuns(
@@ -563,7 +571,11 @@ export default class LevelPlayScene extends Phaser.Scene {
       return;
     }
 
-    const surpriseBlock = this.physics.add.image(845, 128, 'crack-block');
+    const surpriseBlock = this.physics.add.image(
+      Math.max(845, level.bomb.x - 240),
+      128,
+      'crack-block',
+    );
     surpriseBlock.setData('armed', true);
     surpriseBlock.setImmovable(false);
     const body = surpriseBlock.body as Phaser.Physics.Arcade.Body;

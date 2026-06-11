@@ -1,4 +1,9 @@
-export type MathSkill = 'starter' | 'growing' | 'confident' | 'challenge';
+export type MathSkill =
+  | 'starter'
+  | 'growing'
+  | 'confident'
+  | 'challenge'
+  | 'expert';
 export type HintMode = 'immediate' | 'after-two';
 
 export type GameSettings = {
@@ -8,6 +13,9 @@ export type GameSettings = {
   timesTables: number[];
   fractionsEnabled: boolean;
   divisionEnabled: boolean;
+  timeMathEnabled: boolean;
+  powersEnabled: boolean;
+  rootsEnabled: boolean;
   missingNumbersEnabled: boolean;
   twoStepEnabled: boolean;
   timedQuestions: boolean;
@@ -25,6 +33,9 @@ type MathSkillPreset = Pick<
   | 'timesTables'
   | 'fractionsEnabled'
   | 'divisionEnabled'
+  | 'timeMathEnabled'
+  | 'powersEnabled'
+  | 'rootsEnabled'
   | 'missingNumbersEnabled'
   | 'twoStepEnabled'
   | 'questionsPerLevel'
@@ -37,6 +48,9 @@ export const mathSkillPresets: Record<MathSkill, MathSkillPreset> = {
     timesTables: [2, 5, 10],
     fractionsEnabled: false,
     divisionEnabled: false,
+    timeMathEnabled: false,
+    powersEnabled: false,
+    rootsEnabled: false,
     missingNumbersEnabled: false,
     twoStepEnabled: false,
     questionsPerLevel: 1,
@@ -47,6 +61,9 @@ export const mathSkillPresets: Record<MathSkill, MathSkillPreset> = {
     timesTables: [2, 3, 4, 5, 10],
     fractionsEnabled: false,
     divisionEnabled: false,
+    timeMathEnabled: true,
+    powersEnabled: false,
+    rootsEnabled: false,
     missingNumbersEnabled: true,
     twoStepEnabled: false,
     questionsPerLevel: 1,
@@ -57,6 +74,9 @@ export const mathSkillPresets: Record<MathSkill, MathSkillPreset> = {
     timesTables: [2, 3, 4, 5, 8, 10],
     fractionsEnabled: true,
     divisionEnabled: true,
+    timeMathEnabled: true,
+    powersEnabled: false,
+    rootsEnabled: false,
     missingNumbersEnabled: true,
     twoStepEnabled: false,
     questionsPerLevel: 2,
@@ -67,9 +87,25 @@ export const mathSkillPresets: Record<MathSkill, MathSkillPreset> = {
     timesTables: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
     fractionsEnabled: true,
     divisionEnabled: true,
+    timeMathEnabled: true,
+    powersEnabled: true,
+    rootsEnabled: false,
     missingNumbersEnabled: true,
     twoStepEnabled: true,
     questionsPerLevel: 2,
+  },
+  expert: {
+    additionMax: 100,
+    subtractionMax: 100,
+    timesTables: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    fractionsEnabled: true,
+    divisionEnabled: true,
+    timeMathEnabled: true,
+    powersEnabled: true,
+    rootsEnabled: true,
+    missingNumbersEnabled: true,
+    twoStepEnabled: true,
+    questionsPerLevel: 3,
   },
 };
 
@@ -81,7 +117,13 @@ export const defaultSettings: GameSettings = {
   chaosMode: false,
 };
 
-const mathSkills: MathSkill[] = ['starter', 'growing', 'confident', 'challenge'];
+const mathSkills: MathSkill[] = [
+  'starter',
+  'growing',
+  'confident',
+  'challenge',
+  'expert',
+];
 
 function isMathSkill(value: unknown): value is MathSkill {
   return typeof value === 'string' && mathSkills.includes(value as MathSkill);

@@ -18,6 +18,7 @@ const skillChoices: { value: MathSkill; label: string }[] = [
   { value: 'growing', label: 'Growing' },
   { value: 'confident', label: 'Confident' },
   { value: 'challenge', label: 'Challenge' },
+  { value: 'expert', label: 'Expert' },
 ];
 
 export default function ParentSettings({
@@ -153,6 +154,33 @@ export default function ParentSettings({
             type="checkbox"
           />
           <span>Division</span>
+        </label>
+
+        <label className="toggle-row">
+          <input
+            checked={settings.timeMathEnabled}
+            onChange={(event) => update({ timeMathEnabled: event.target.checked })}
+            type="checkbox"
+          />
+          <span>Time maths</span>
+        </label>
+
+        <label className="toggle-row">
+          <input
+            checked={settings.powersEnabled}
+            onChange={(event) => update({ powersEnabled: event.target.checked })}
+            type="checkbox"
+          />
+          <span>Squares and cubes</span>
+        </label>
+
+        <label className="toggle-row">
+          <input
+            checked={settings.rootsEnabled}
+            onChange={(event) => update({ rootsEnabled: event.target.checked })}
+            type="checkbox"
+          />
+          <span>Roots</span>
         </label>
 
         <label className="toggle-row">

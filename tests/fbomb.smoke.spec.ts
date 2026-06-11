@@ -328,8 +328,46 @@ test('applies the Challenge maths skill preset', async ({ page }) => {
 
   await expect(page.getByLabel('Fractions')).toBeChecked();
   await expect(page.getByLabel('Division')).toBeChecked();
+  await expect(page.getByLabel('Time maths')).toBeChecked();
+  await expect(page.getByLabel('Squares and cubes')).toBeChecked();
+  await expect(page.getByLabel('Roots')).not.toBeChecked();
   await expect(page.getByLabel('Missing numbers')).toBeChecked();
   await expect(page.getByLabel('Two-step questions')).toBeChecked();
+
+  await page.getByRole('button', { name: 'Expert' }).click();
+  await expect(page.getByLabel('Roots')).toBeChecked();
+});
+
+test('renders the generated expert level range', async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      consoleErrors.push(message.text());
+    }
+  });
+
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      'fbomb.progress.v1',
+      JSON.stringify({
+        completedLevels: Array.from(
+          { length: 99 },
+          (_, index) => `level-${index + 1}`,
+        ),
+        rewards: [],
+      }),
+    );
+  });
+
+  await page.goto('/');
+  await page.getByRole('button', { exact: true, name: 'Map' }).click();
+
+  const expertLevel = page.locator('.level-card').filter({ hasText: 'Prism Run 100' });
+  await expertLevel.getByRole('button', { name: /play/i }).click();
+
+  await expect(page.getByRole('heading', { name: 'Prism Run 100' })).toBeVisible();
+  await expect(page.locator('canvas')).toBeVisible();
+  expect(consoleErrors).toEqual([]);
 });
 
 test('can recreate game scenes without stale listener console errors', async ({
